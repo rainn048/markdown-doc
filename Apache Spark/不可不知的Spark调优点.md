@@ -29,3 +29,7 @@ Spark默认使用Java的序列化机制，但这种Java原生的序列化机制�
     * 使用mapPartition替代map
     * 使用foreachPartition替代foreach
 要结合实际使用场景，进行算子的替代优化。
+
+8. structured streaming的运行环境中会有两个关键因素影响着整体性能，一个是input size，一个是state size。这两个size完全指导于我们整个streaming的全部的流程，与端到端性能强相关。输入batch的大小，会影响是否能再内存中进行sfuffle，不用spill到磁盘。
+限制state store
+join的时候是否可以使用broadcast hash join

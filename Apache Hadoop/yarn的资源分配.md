@@ -1,0 +1,1 @@
+<https://docs.cloudera.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/content/determine-hdp-memory-config.html#ref-cb07873e-edba-4c77-bd34-edbcefcbfc16>
