@@ -6,3 +6,5 @@ https://mp.weixin.qq.com/s/-HRK9BkGSC1jiw6T5ZLBJQ
 https://databricks.com/session/cosco-an-efficient-facebook-scale-shuffle-service
 
 https://mp.weixin.qq.com/s/yEPh7uQK6ZOvizA6MyUOvw
+
+https://mp.weixin.qq.com/s/wcsYqNW4hf1nxwbQpOSXmQ
