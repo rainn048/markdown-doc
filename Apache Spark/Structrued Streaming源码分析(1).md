@@ -27,6 +27,61 @@ query.awaitTermination()
 ```
 我们将按这个流程分析。
 
+## 几个重要的类
+
+### StreamingQueryManager
+StreamingQueryManager是SparkSession的活动流查询的管理接口。StreamingQueryManager用于创建StreamingQuery(及其StreamExecution)。
+![](images/StreamingQueryManager-createQuery.png)
+
+在创建sparkSession过程中，会创建SessionState，SessionState的构造函数种的一个参数就是新创建的streamingQueryManager。streamingQueryManager管理着这个sparksession所有的查询流。
+![](images/StreamingQueryManager.png)
+```scala
+  def active: Array[StreamingQuery] = activeQueriesLock.synchronized {
+    activeQueries.values.toArray
+  }
+  def get(id: UUID): StreamingQuery = activeQueriesLock.synchronized {
+    activeQueries.get(id).orNull
+  }
+```
+其中的StreamingQuery就是一个一个实时流，对应代码就是DataStreamWriter#start返回的结果。
+```scala
+def start(): StreamingQuery = {
+  df.sparkSession.sessionState.streamingQueryManager.startQuery(
+        extraOptions.get("queryName"),
+        extraOptions.get("checkpointLocation"),
+        df,
+        extraOptions.toMap,
+        sink,
+        outputMode,
+        useTempCheckpointLocation = true,
+        trigger = trigger)
+}
+```
+startQuery中会调用createQuery创建StreamingQueryWrapper，也就是StreamingQuery。StreamingQueryWrapper用函数方式包装了不可序列化的StreamExecution。用户侧用到的都是StreamingQueryWrapper。
+
+### StreamExecution
+StreamExecution是流查询引擎的基础，管理在单独线程上的一个Spark SQL query查询流。
+![](images/StreamExecution-creating-instance.png)
+StreamExecution是流查询的执行环境，它在每个触发器中执行，最后将结果添加到接收器中。
+
+![](images/20180831154122102.png)
+先定义好 Dataset/DataFrame 的产生、变换和写出，再启动 StreamExection 去持续查询。这些 Dataset/DataFrame 的产生、变换和写出的信息就对应保存在 StreamExecution 非常重要的 3 个成员变量中：
+
+* sources: streaming data 的产生端（比如 kafka 等）
+* logicalPlan: DataFrame/Dataset 的一系列变换（即计算逻辑）
+* sink: 最终结果写出的接收端（比如 file system 等）
+
+StreamExection 另外的重要成员变量是：
+
+* currentBatchId: 当前执行的 id
+* batchCommitLog: 已经成功处理过的批次有哪些
+* offsetLog, availableOffsets, committedOffsets: 当前执行需要处理的 source data 的 meta 信息
+* offsetSeqMetadata: 当前执行的 watermark 信息（event time 相关，本文暂不涉及、另文解析）等
+
+我们将 Source, Sink, StreamExecution 及其重要成员变量标识在下图。
+
+![](images/v2-6049a5aa52f36705ea738d10e8005074_720w.png)
+
 
 ## 创建数据源
 DataStreamReader是生成流的入口所在，描述了数据如何从流数据源加载到DataFrame，可以设置数据的类型、schema和各种option，其中关键方法是load。
@@ -106,7 +161,42 @@ def start(): StreamingQuery = {
     // ... 
 }
 ```
+startQuery里会创建StreamingQueryWrapper，然后启动query.streamingQuery.start()，真正的数据处理就在这一步。
+```scala
+  def start(): Unit = {
+    logInfo(s"Starting $prettyIdString. Use $resolvedCheckpointRoot to store the query checkpoint.")
+    queryExecutionThread.setDaemon(true)
+    queryExecutionThread.start()
+    startLatch.await()  // Wait until thread started and QueryStart event has been posted
+  }
+```
+实际是执行queryExecutionThread的run()方法：
+```scala
+ val queryExecutionThread: QueryExecutionThread =
+    new QueryExecutionThread(s"stream execution thread for $prettyIdString") {
+      override def run(): Unit = {
+        // To fix call site like "run at <unknown>:0", we bridge the call site from the caller
+        // thread to this micro batch thread
+        sparkSession.sparkContext.setCallSite(callSite)
+        runStream()
+      }
+    }
+```
+runStream()分为环境的初始化、启动和执行过程中的异常处理try{…}catch{…}结构、其核心方法是runActivatedStream(sparkSessionForStream)，具体的实现在MicroBatchExecution（批量处理）、ContinuousExecution（连续处理）这个两个子类中均有各自具体的实现。
+
+runActivatedStream执行每批次流处理的整体逻辑：
+![](images/20180901143724208.png)
+
+* startTrigger()和finishTrigger()： 是ProgressReporter提供的功能，用于统计流处理性能
+*  populateStartOffset()：从配置的checkPoint目录读取offsets、commit子目录最大数字序号的文件内容，替换内存中watermark、availableOffsets、committedOffsets对象，比较提交的版本，决定是否恢复上次程序运行的流处理进度;
+*  constructNextBatch()：获取sources的最大offsets、 lastExecution.executedPlan.collect()方式获取上个批次的EventTimeWatermarkExec并更新watermark。offsetLog.purge()方法保存最近100个BatchID
 
 
+## checkpoint root目录内容分析
+* commits目录的创建在StreamExecution：val commitLog = new CommitLog(sparkSession, checkpointFile(“commits”))，使用commitLog.add(currentBatchId)添加新版本，commitLog.getLatest()获取最近提交的版本号
+* metadata文件对应StreamExecution的streamMetadata成员遍历，记录的是当前目录的id: UUID，可用于计算进度恢复
+* offsets目录的创建在StreamExecution：val offsetLog = new OffsetSeqLog(sparkSession, checkpointFile(“offsets”))，使用offsetLog .add()添加新版本，offsetLog .getLatest()获取最近运行的batchID信息
+* sources目录在MicroBatchExecution的logicalPlan创建过程中定义，即val metadataPath = s”nextSourceId”，
+* state目录存储的是StateStore聚合状态的数据
 
-
+![](images/20180901124413392.png)
