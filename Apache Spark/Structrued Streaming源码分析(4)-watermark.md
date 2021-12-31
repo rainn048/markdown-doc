@@ -1,7 +1,9 @@
+# watermark简介
 
 Structured Streaming里的watermark是指event time watermark，即时间时间的watermark。这个watermark是一个时间点，在这时间之前，我们假设不再有延迟数据到达。
 
 Spark将在以下几个方面使用此水印:
+
 * 对于一个带时间的window操作，什么时候完成并输出最终结果，即使有延迟数据到来也不再更新；
 * 减小为了聚合操作而保存的中间状态的大小；
 
@@ -9,10 +11,7 @@ Spark将在以下几个方面使用此水印:
 
 由于跨分区计算此值的成本，实际使用的watermark只能保证在实际事件时间之后至少为`delayThreshold`，即小于这个阈值的都保证不丢，但是大于这个阈值的不保证必须丢。
 
-
 因为计算watermark是需要获取实际数据中的事件时间的，所以，watermark的计算时在物理计划执行的时候。
-
-
 
 ## 多流情况下watermark的选择策略
 
@@ -22,12 +21,9 @@ Spark将在以下几个方面使用此水印:
 
 比如有多个流在一起join，每个流都定义了watermark，max策略就是说，以所有流中看到的最大事件时间来计算watermark，min策略就是以所有流中取一个最小的时间（但是这个时间在这个流里是最大的时间）来作为watermrk。
 
-
-
 ## watermark的维护
 
 每一个查询流有有一个WatermarkTracker来维护全局的watermark。
-
 
 ## watermark的创建
 
@@ -42,6 +38,7 @@ offset文件和commit文件中都保存有watermark时间戳，如果offset的ba
 程序起来以后，在代码runBatch中watermark就会随着没批次处理而更新。
 
 因为watermark是一个transform算子，在spark的物理计划中会有一个节点EventTimeWatermarkExec，里面定义了一个累加器eventTimeStats，它会搜集所有executor端发送过来的watermark时间戳。在计算过程中，这个节点会遍历所有数据， 把事件时间的统计信息保存下来。
+
 ```scala
 case class EventTimeWatermarkExec(
     eventTime: Attribute,
@@ -76,6 +73,7 @@ def add(eventTime: Long): Unit = {
 ```
 
 当一批次计算完成后，会调用`watermarkTracker.updateWatermark(lastExecution.executedPlan)`来更新watermark。
+
 ```scala
  private def runBatch(sparkSessionToRunBatch: SparkSession): Unit = {
      // 构造dataset
@@ -89,7 +87,9 @@ def add(eventTime: Long): Unit = {
     }
  }
 ```
+
 其中watermarkTracker.updateWatermark(lastExecution.executedPlan)就会把物理计划中的EventTimeWatermarkExec过滤出来，然后获取新的watermark。这个节点
+
 ```scala
 
   def updateWatermark(executedPlan: SparkPlan): Unit = synchronized {
@@ -122,7 +122,3 @@ def add(eventTime: Long): Unit = {
 ```
 
 上面就是watermark的一些原理介绍。
-
-
-
-

@@ -1,3 +1,4 @@
+# Parser模块简介
 
 从sql字符串到可执行的物理计划，首先要解决的就是sql语法的解析，只有理解了sql语句的含义，才能做各种优化，然后生成可执行代码。
 
@@ -11,9 +12,7 @@ Listener模式是被动式遍历，antlr生成类ParseTreeListener，这个类�
 
 Visitor则是主动遍历模式，需要我们显示的控制我们的遍历顺序。该模式可以实现在不改变各元素的类的前提下定义作用于这些元素的新操作。SparkSql用的就是此方式来遍历节点的。
 
-
 通过词法解析和语法解析将SQL语句解析成了ANTLR 4的语法树结构ParseTree。然后在parsePlan中，使用AstBuilder将ANTLR 4语法树结构转换成catalyst表达式逻辑计划logical plan。
-
 
 ```scala
 // 代码1
@@ -65,12 +64,4 @@ protected def parse[T](command: String)(toResult: SqlBaseParser => T): T = {
 代码2把代码3生成的结果再处理一遍，转换成spark的LogicalPlan。可以看到首先调用的是visitSingleStatement，singleStatement为spark sql语法文件中定义的最顶级节点，接下来就是利用antlr的visitor模式显示的遍历整个语法树，将所有的节点都替换成了LogicalPlan 或者TableIdentifier。
 
 最终得到的语法树如图所示：
-![](images/Dingtalk_20211229151744.jpg)
-
-
-
-
-
-
-
-
+![语法树](images/Dingtalk_20211229151744.jpg)
