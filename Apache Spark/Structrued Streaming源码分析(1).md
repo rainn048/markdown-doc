@@ -1,10 +1,9 @@
+# 概述
 
 ## 前言
 
-
-
-
 一般的Structrued Streaming代码流程如下：
+
 ```scala
 // 1. 设置数据源
 val df = spark.readStream
@@ -25,16 +24,19 @@ val query = df.writeStream
 
 query.awaitTermination()
 ```
+
 我们将按这个流程分析。
 
 ## 几个重要的类
 
 ### StreamingQueryManager
+
 StreamingQueryManager是SparkSession的活动流查询的管理接口。StreamingQueryManager用于创建StreamingQuery(及其StreamExecution)。
-![](images/StreamingQueryManager-createQuery.png)
+![StreamingQueryManager](images/StreamingQueryManager-createQuery.png)
 
 在创建sparkSession过程中，会创建SessionState，SessionState的构造函数种的一个参数就是新创建的streamingQueryManager。streamingQueryManager管理着这个sparksession所有的查询流。
-![](images/StreamingQueryManager.png)
+![StreamingQueryManager](images/StreamingQueryManager.png)
+
 ```scala
   def active: Array[StreamingQuery] = activeQueriesLock.synchronized {
     activeQueries.values.toArray
@@ -43,7 +45,9 @@ StreamingQueryManager是SparkSession的活动流查询的管理接口。Streamin
     activeQueries.get(id).orNull
   }
 ```
+
 其中的StreamingQuery就是一个一个实时流，对应代码就是DataStreamWriter#start返回的结果。
+
 ```scala
 def start(): StreamingQuery = {
   df.sparkSession.sessionState.streamingQueryManager.startQuery(
@@ -57,14 +61,16 @@ def start(): StreamingQuery = {
         trigger = trigger)
 }
 ```
+
 startQuery中会调用createQuery创建StreamingQueryWrapper，也就是StreamingQuery。StreamingQueryWrapper用函数方式包装了不可序列化的StreamExecution。用户侧用到的都是StreamingQueryWrapper。
 
 ### StreamExecution
+
 StreamExecution是流查询引擎的基础，管理在单独线程上的一个Spark SQL query查询流。
-![](images/StreamExecution-creating-instance.png)
+![StreamExecution](images/StreamExecution-creating-instance.png)
 StreamExecution是流查询的执行环境，它在每个触发器中执行，最后将结果添加到接收器中。
 
-![](images/20180831154122102.png)
+![StreamExecution](images/20180831154122102.png)
 先定义好 Dataset/DataFrame 的产生、变换和写出，再启动 StreamExection 去持续查询。这些 Dataset/DataFrame 的产生、变换和写出的信息就对应保存在 StreamExecution 非常重要的 3 个成员变量中：
 
 * sources: streaming data 的产生端（比如 kafka 等）
@@ -80,14 +86,15 @@ StreamExection 另外的重要成员变量是：
 
 我们将 Source, Sink, StreamExecution 及其重要成员变量标识在下图。
 
-![](images/v2-6049a5aa52f36705ea738d10e8005074_720w.png)
-
+![StreamExecution](images/v2-6049a5aa52f36705ea738d10e8005074_720w.png)
 
 ## 创建数据源
+
 DataStreamReader是生成流的入口所在，描述了数据如何从流数据源加载到DataFrame，可以设置数据的类型、schema和各种option，其中关键方法是load。
-![](images/DataStreamReader-SparkSession-StreamingRelation.png)
+![DataStreamReader](images/DataStreamReader-SparkSession-StreamingRelation.png)
 
 可以使用`SparkSession.readStream`来创建一个`DataStreamReader`。
+
 ```scala
 import org.apache.spark.sql.SparkSession
 val spark: SparkSession = ...
@@ -100,10 +107,12 @@ val streamReader = spark.readStream
 在描述了从外部流数据源读取数据的流管道之后，最终会使用load操作符来触发加载。
 
 Structured Streaming提供了两个流执行引擎（ stream execution engines）执行流查询:
-* MicroBatchExecution 
+
+* MicroBatchExecution
 * ContinuousExecution
 
 下面看一下load函数的关键实现。
+
 ```scala
 def load(): DataFrame = {
     // ... 
@@ -118,6 +127,7 @@ def load(): DataFrame = {
       case s: ContinuousReadSupportProvider =>
 }
 ```
+
 （1）调用DataStreamReader.load()函数开始获取数据源的数据，并把数据保存成DataFrame。
 
 （2）load()函数调用DataSource.lookupDataSource来获取数据源的类对象，并通过返回的类对象来创建数据源对象。可以支持多种数据源对象，比如：kafka、各种文件格式orc等。
@@ -133,6 +143,7 @@ def load(): DataFrame = {
 启动流的查询和处理是在dataset被创建完成后进行的写数据流中进行的，其实就是调用:Dataset#writeStream函数。该函数返回一个DataStreamWriter对象。
 
 当调用DataStreamWriter#start()函数时，就开始执行流数据的读取和处理。start()函数会根据source的不同而进行不同的处理。source的类型主要有：
+
 * memory
 * foreach
 * foreachBatch
@@ -161,7 +172,9 @@ def start(): StreamingQuery = {
     // ... 
 }
 ```
+
 startQuery里会创建StreamingQueryWrapper，然后启动query.streamingQuery.start()，真正的数据处理就在这一步。
+
 ```scala
   def start(): Unit = {
     logInfo(s"Starting $prettyIdString. Use $resolvedCheckpointRoot to store the query checkpoint.")
@@ -170,7 +183,9 @@ startQuery里会创建StreamingQueryWrapper，然后启动query.streamingQuery.s
     startLatch.await()  // Wait until thread started and QueryStart event has been posted
   }
 ```
+
 实际是执行queryExecutionThread的run()方法：
+
 ```scala
  val queryExecutionThread: QueryExecutionThread =
     new QueryExecutionThread(s"stream execution thread for $prettyIdString") {
@@ -182,21 +197,22 @@ startQuery里会创建StreamingQueryWrapper，然后启动query.streamingQuery.s
       }
     }
 ```
+
 runStream()分为环境的初始化、启动和执行过程中的异常处理try{…}catch{…}结构、其核心方法是runActivatedStream(sparkSessionForStream)，具体的实现在MicroBatchExecution（批量处理）、ContinuousExecution（连续处理）这个两个子类中均有各自具体的实现。
 
 runActivatedStream执行每批次流处理的整体逻辑：
-![](images/20180901143724208.png)
+![runActivatedStream](images/20180901143724208.png)
 
 * startTrigger()和finishTrigger()： 是ProgressReporter提供的功能，用于统计流处理性能
-*  populateStartOffset()：从配置的checkPoint目录读取offsets、commit子目录最大数字序号的文件内容，替换内存中watermark、availableOffsets、committedOffsets对象，比较提交的版本，决定是否恢复上次程序运行的流处理进度;
-*  constructNextBatch()：获取sources的最大offsets、 lastExecution.executedPlan.collect()方式获取上个批次的EventTimeWatermarkExec并更新watermark。offsetLog.purge()方法保存最近100个BatchID
-
+* populateStartOffset()：从配置的checkPoint目录读取offsets、commit子目录最大数字序号的文件内容，替换内存中watermark、availableOffsets、committedOffsets对象，比较提交的版本，决定是否恢复上次程序运行的流处理进度;
+* constructNextBatch()：获取sources的最大offsets、 lastExecution.executedPlan.collect()方式获取上个批次的EventTimeWatermarkExec并更新watermark。offsetLog.purge()方法保存最近100个BatchID
 
 ## checkpoint root目录内容分析
+
 * commits目录的创建在StreamExecution：val commitLog = new CommitLog(sparkSession, checkpointFile(“commits”))，使用commitLog.add(currentBatchId)添加新版本，commitLog.getLatest()获取最近提交的版本号
 * metadata文件对应StreamExecution的streamMetadata成员遍历，记录的是当前目录的id: UUID，可用于计算进度恢复
 * offsets目录的创建在StreamExecution：val offsetLog = new OffsetSeqLog(sparkSession, checkpointFile(“offsets”))，使用offsetLog .add()添加新版本，offsetLog .getLatest()获取最近运行的batchID信息
 * sources目录在MicroBatchExecution的logicalPlan创建过程中定义，即val metadataPath = s”nextSourceId”，
 * state目录存储的是StateStore聚合状态的数据
 
-![](images/20180901124413392.png)
+![state目录](images/20180901124413392.png)
