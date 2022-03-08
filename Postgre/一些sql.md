@@ -1,4 +1,8 @@
-0.用雪花模型生成相机ID
+# 一些sql
+
+## 用雪花模型生成相机ID
+
+```sql
 create schema shard_1;
 create sequence shard_1.global_id_sequence;
 
@@ -21,9 +25,11 @@ END;
 $$ LANGUAGE PLPGSQL;
 
 select shard_1.id_generator();
+```
 
+## 构造相机
 
-1.构造相机
+```sql
 do $$
 declare
   v_idx integer := 0;
@@ -33,8 +39,11 @@ begin
     v_idx = v_idx + 1;
   end loop;
 end $$;
+```
 
-2.构造区域
+## 构造区域
+
+```sql
 do $$
 declare
   v_idx integer := 1;
@@ -45,115 +54,113 @@ begin
   end loop;
 end $$;
 
-
 DO $$ DECLARE
 v_idx INTEGER := 0;
 DECLARE
-	i INT;
+  i INT;
 DECLARE
-	cnt INT;
+  cnt INT;
 BEGIN
-		cnt := 0;
-		
-	SELECT COUNT
-		( 1 ) INTO cnt 
-	FROM
-		huixun_area;
-	while
-	v_idx < cnt
-	loop
-	i := 0;
-	INSERT INTO huixun_area_camera_mapping_copy1 (
-		SELECT
-			ha.area_id,
-			ci.camera_id,
-			'camera_core_id',
-			0 
-		FROM
-			huixun_area ha,
-			camera_info ci 
-			LIMIT  trunc( random() * ( 20-1 ) + 1 )
-			offset v_idx * 20
-		);
-	v_idx := v_idx + 1;
-	
+  cnt := 0;
+
+  SELECT COUNT( 1 ) INTO cnt 
+  FROM huixun_area;
+  while v_idx < cnt
+  loop i := 0;
+
+  INSERT INTO huixun_area_camera_mapping_copy1 (
+    SELECT
+        ha.area_id,
+        ci.camera_id,
+        'camera_core_id',
+        0 
+    FROM
+        huixun_area ha,
+        camera_info ci 
+    LIMIT  
+        trunc( random() * ( 20-1 ) + 1 )
+        offset v_idx * 20
+        );
+    v_idx := v_idx + 1;
+
 END loop;
 
 END $$;
+```
 
 3.构造区域场景关系
+
+```sql
 DO $$ DECLARE
 v_idx INTEGER := 0;
 DECLARE
-	i INT;
+  i INT;
 DECLARE
-	cnt INT;
+  cnt INT;
 BEGIN
-		cnt := 0;
-		
-	SELECT COUNT
-		( 1 ) INTO cnt 
-	FROM
-		huixun.huixun_area;
-	while
-	v_idx < cnt
-	loop
-	i := 0;
-	INSERT INTO huixun.huixun_area_scene_mapping (
-		SELECT
-			ha.area_id,
-			(array[10101,10301,10501,10502,10601,10701,10901,11101,19999])[floor(random()*9)::int + 1],
-			0 
-		FROM
-			huixun.huixun_area ha limit 1 offset v_idx
-		);
-	v_idx := v_idx + 1;
-	
+  cnt := 0;
+
+  SELECT COUNT( 1 ) INTO cnt 
+  FROM
+    huixun.huixun_area;
+
+  while v_idx < cnt
+  loop
+    i := 0;
+  INSERT INTO huixun.huixun_area_scene_mapping (
+  SELECT
+    ha.area_id,
+    (array[10101,10301,10501,10502,10601,10701,10901,11101,19999])[floor(random()*9)::int + 1],
+    0 
+  FROM
+    huixun.huixun_area ha limit 1 offset v_idx
+    );
+    v_idx := v_idx + 1;
+
+END loop;
+
+END $$;
+```
+
+## 相机场所
+
+```sql
+DO $$ DECLARE
+v_idx INTEGER := 0;
+DECLARE
+    i INT;
+DECLARE
+    cnt INT;
+BEGIN
+        cnt := 0;
+        
+    SELECT COUNT
+        ( 1 ) INTO cnt 
+    FROM
+        huixun.camera_info;
+    while
+    v_idx < cnt
+    loop
+    i := 0;
+    INSERT INTO huixun.huixun_camera_location_mapping (
+        SELECT
+            ha.camera_id,
+            (array[10101,10301,10501,10502,10601,10701,10901,11101,19999])[floor(random()*9)::int + 1]
+        
+        FROM
+            huixun.camera_info ha limit 1 offset v_idx
+        );
+    v_idx := v_idx + 1;
+    
 END loop;
 
 END $$;
 
-
-
-
-
-4.相机场所
-DO $$ DECLARE
-v_idx INTEGER := 0;
-DECLARE
-	i INT;
-DECLARE
-	cnt INT;
-BEGIN
-		cnt := 0;
-		
-	SELECT COUNT
-		( 1 ) INTO cnt 
-	FROM
-		huixun.camera_info;
-	while
-	v_idx < cnt
-	loop
-	i := 0;
-	INSERT INTO huixun.huixun_camera_location_mapping (
-		SELECT
-			ha.camera_id,
-			(array[10101,10301,10501,10502,10601,10701,10901,11101,19999])[floor(random()*9)::int + 1]
-		
-		FROM
-			huixun.camera_info ha limit 1 offset v_idx
-		);
-	v_idx := v_idx + 1;
-	
-END loop;
-
-END $$;
-
-
-
-
+```
 
 ## 第二个
+
+```sql
 create table huixun.profile as SELECT profile_id from profile limit 2000000;
 create table huixun.camera_bak as SELECT camera_core_id from huixun.camera_info WHERE camera_id in (1031, 1032,1043, 1044, 1045)
 
@@ -165,32 +172,32 @@ profile_id,
 camera_core_id,
 1 
 FROM
-	( SELECT * FROM huixun.test_profile ) M,
-	huixun.test_camera,
-	huixun.test_time_hour
+    ( SELECT * FROM huixun.test_profile ) M,
+    huixun.test_camera,
+    huixun.test_time_hour
 
 
 
 DO $$ DECLARE
 i INTEGER := 0;
 BEGIN
-		while
-		i < 90  loop
-		INSERT INTO test_date ( captured_date )
-	VALUES
-		(
-			TO_TIMESTAMP('2019-10-07 16:00:00', 'YYYY-MM-DD hh24:mi:ss') + make_interval(days => i)
-		);
-	i = i + 1;
-	
+        while
+        i < 90  loop
+        INSERT INTO test_date ( captured_date )
+    VALUES
+        (
+            TO_TIMESTAMP('2019-10-07 16:00:00', 'YYYY-MM-DD hh24:mi:ss') + make_interval(days => i)
+        );
+    i = i + 1;
+    
 END loop;
 
 END $$;
-
-
+```
 
 ## 第三个
 
+```sql
 insert into huixun.huixun_profile_count_day (captured_date, profile_id, face_count)  select '2019-10-27 16:00:00', profile_id, 5 from profile  order by random()  limit 5000000 ON CONFLICT (captured_date, profile_id) do NOTHING
 
 
@@ -223,9 +230,11 @@ group by area_id  order by area_id
 
 
 insert into huixun.profile_count_hour_camera_copy1 (captured_hour, profile_id, camera_core_id,face_count)  select captured_hour, profile_id, core_id as camera_core_id, 1 from (select * from two_w_profile_id ) m, random_camera_id
-
+```
 
 ## 第四个
+
+```sql
 do $$
 declare
   v_idx integer := 100001;
@@ -252,7 +261,10 @@ end $$;
 
 
 insert into huixun.huixun_profile_count_day (captured_date, profile_id, face_count)  select '2019-10-27', profile_id, 10 from profile order by random()  limit 2000000 ON CONFLICT (captured_date, profile_id) do NOTHING
-
+```
 
 ## 第五个
+
+```sql
 DELETE from face_cluster_mapping where face_id like '  6%'
+```
