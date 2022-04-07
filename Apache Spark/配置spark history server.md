@@ -20,6 +20,8 @@ spark.eventLog.compress          true
 
 如果看不到execctor的stdout和stderr，则需要增加以下配置：（日志有聚合）
 1.yarn-site.xml中增加
+
+```xml
 <property> 
 <name>yarn.log.server.url</name> 
 <value>http://hostname:19888/jobhistory/logs/</value> 
@@ -33,8 +35,9 @@ spark.eventLog.compress          true
         <name>mapreduce.jobhistory.webapp.address</name>
         <value>hostname:19888</value>
     </property> 
+```
 
 3.然后启动
-mr-jobhistory-daemon.sh start historyserver 
+mr-jobhistory-daemon.sh start historyserver
 
 注意，spark log的存放路径如果是本地磁盘，history可能看不全lob信息，放到hdfs就可以

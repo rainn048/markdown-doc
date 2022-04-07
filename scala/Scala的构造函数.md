@@ -33,7 +33,8 @@ val t3 = new Time(16, 27)
 2、在类内部被调的方法；
 3、在类内部执行的语句和表达式。
 下面的例子说明了构造函数参数、类字段和表达式：
-```
+
+```scala
 class Person (var firstName : String, var lastName : String) {    //构造函数参数
 　　println("the constructor begins")
 　　var age = 0
@@ -46,22 +47,20 @@ class Person (var firstName : String, var lastName : String) {    //构造函数
 　　println("still in the constructor")
 }
 ```
+
 因为类里边的方法是主构造函数的一部分，当实例化一个Person对象时，会看到从类定义的开始到结尾各个方法的输出：
 scala> val big = new Person("Poison", "Pink")
- 
+
 the constructor begins
 Poison Pink is o years oldstill in the constructor
 如果类名之后没有参数，则该类具备一个无参主构造函数，这样一个构造函数仅仅是简单地执行类体中的所有语句而已。
 如果主构造函数让你困惑，也可以不使用它，只需要按照常规方法提供一个或者多个辅助构造函数即可，但是要记得调用this()（第一个辅助构造函数，假设其他辅助构造函数是串联的）。
 
-
 Scala默认主构造函数
 在scala中，如果不指定主构造函数，编译器将创建一个主构造函数的构造函数。 所有类的主体的声明都被视为构造函数的一部分。它也被称为默认构造函数。
 
-
 Scala主要构造函数
 Scala提供了一个类的主构造函数的概念。如果代码只有一个构造函数，则可以不需要定义明确的构造函数。它有助于优化代码，可以创建具有零个或多个参数的主构造函数。
-
 
 Scala次要(辅助)构造器
 可以在类中创建任意数量的辅助构造函数，必须要从辅助构造函数内部调用主构造函数。this关键字用于从其他构造函数调用构造函数。当调用其他构造函数时，要将其放在构造函数中的第一行。

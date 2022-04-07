@@ -3,6 +3,7 @@
 ## 数组
 
 1. 数组拷贝： `Arrays.copyOfRange(num, start, end);`
+2. 数据扩容：`Arrays.copyOf(原数组名，新数组长度);`
 
 ## HashMap
 
@@ -17,7 +18,44 @@
    1. 遍历key：for(Integer i : map.keySet()) { 。。。}
    2. 遍历value： for(String value : map.valuse()) { ... }
 
+## Set
+
+1. 添加元素：`add(E e)`
+2. 判断是否存在： `contains(Object o)`
+3. 是否为空： `isEmpty()`
+4. 删除元素; `remove(Object o)`
+5. 大小： `size()`
+6. 转数组： `toArray()`
+
 ## 链表
+
+### ArrayList
+
+```java
+add(Object e)
+add(int index ,Object e)
+addAll(Collection c) 
+addAll(int index , Collection c)
+size()
+get(int index)
+set(int index,Object e)
+indexOf(Object c)
+lastIndexOf(Object c)
+isEmpty()
+remove(int index)
+remove(Object c)
+removeAll(Collection<?> c)
+contains(Object c)
+containsAll(Collection<?> c)
+clear()
+clone()
+iterator()
+retainAll(Collection<?> c)
+subList(int fromIndex,int toIndex)
+trimToSize()  回收多余容量
+toArray()
+toArray(T[] a)
+```
 
 ### LinkedList
 
@@ -72,6 +110,13 @@
 3. remove(), poll() 删除并返回头部: `remove(); poll();`
 4. element(), peek() 获取但不删除：`element(); peek();`
 
+## 优先队列(PriorityQueue)
+
+```java
+// 不用比较器，默认升序排列
+Queue<Integer> q = new PriorityQueue<>();
+```
+
 ## String
 
 ```java
@@ -95,4 +140,28 @@
     String[] split​(String regex, int limit) //将此字符串拆分为给定 regular expression的匹配 项 。
     public String substring(int beginIndex)
     public String substring(int beginIndex, int endIndex) //beginIndex -- 起始索引（包括）。endIndex -- 结束索引（不包括）。
+```
+
+## stack
+
+```java
+boolean empty() //测试堆栈是否为空。
+Object peek( ) //查看堆栈顶部的对象，但不从堆栈中移除它。
+Object pop( ) // 移除堆栈顶部的对象，并作为此函数的值返回该对象。
+Object push(Object element) // 把项压入堆栈顶部。
+int search(Object element) // 返回对象在堆栈中的位置，以 1 为基数。
+```
+
+## 获取随机数
+
+```java
+// 第一种方法：
+Random rand = new Radnom();
+//获取[0, 100)之间的整数
+int i = rand.nextInt(100)
+
+// 第二种方法
+final double d = Math.random();
+//获取[0, 100)之间的整数
+final int i = (int)(d*100);
 ```

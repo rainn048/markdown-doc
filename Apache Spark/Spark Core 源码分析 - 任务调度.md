@@ -75,8 +75,28 @@ private def doOnReceive(event: DAGSchedulerEvent): Unit = event match {
 }
 ```
 
-提交任务时，dagScheduler会调用submitMissingTasks生成TaskSet，并且把它交给TaskScheduler调度，具体的转换过程如下：
+提交任务时，dagScheduler会调用submitMissingTasks生成TaskSet，并且把它交给TaskScheduler调度，具体的转换过程如下：TODO
 
+### 本地化调度
+
+DAGScheduler切割Job，划分Stage, 通过调用submitStage来提交一个Stage对应的tasks，submitStage会调用submitMissingTasks，submitMissingTasks 确定每个需要计算的 task 的preferredLocations，通过调用getPreferrdeLocations()得到partition 的优先位置，由于一个partition对应一个task，此partition的优先位置就是task的优先位置，对于要提交到TaskScheduler的TaskSet中的每一个task，该task优先位置与其对应的partition对应的优先位置一致。
+
+具体流程如下：
+
+1. 首先从缓存中查找是否有此分区的位置信息，因为DAGScheduler会在本地保存一个rdd和分区位置的映射关系，查到一个就缓存一个。如果rdd的存储级别是NONE时，就直接返回一个空的列表。不为None时，才会从blockmanager获取rdd分区缓存的位置信息。
+2. 如果上一步结果不为空，直接返回，否则进行下一步。
+3. 如果RDD有位置偏好，获取rdd的位置偏好信息，首先从checkpoint中查找，没有的话再查找rdd的位置偏好信息，因为每个rdd在定义的时候都会实现5个函数，就包括位置偏好函数，一般都是从父rdd继承过来的位置信息。
+4. 如果上一步不为空，则返回，否则进行一下步。
+5. 如果rdd是窄依赖，则取第一个rdd的位置信息。
+
+从调度队列中拿到TaskSetManager后，那么接下来的工作就是TaskSetManager按照一定的规则一个个取出task给TaskScheduler，TaskScheduler再交给SchedulerBackend去发到Executor上执行。前面也提到，TaskSetManager封装了一个Stage的所有task，并负责管理调度这些task。
+
+根据每个task的优先位置，确定task的Locality级别，Locality一共有五种，优先级由高到低顺序：
+![7](images/c30f957d52824bd7b71b32c7ccff7748.jpg)
+
+在调度执行时，Spark调度总是会尽量让每个task以最高的本地性级别来启动，当一个task以X本地性级别启动，但是该本地性级别对应的所有节点都没有空闲资源而启动失败，此时并不会马上降低本地性级别启动而是在某个时间长度内再次以X本地性级别来启动该task，若超过限时时间则降级启动，去尝试下一个本地性级别，依次类推。
+
+可以通过调大每个类别的最大容忍延迟时间，在等待阶段对应的Executor可能就会有相应的资源去执行此task，这就在在一定程度上提到了运行性能。
 
 ## Spark Task级调度
 
@@ -89,16 +109,3 @@ TaskSetManager负责监控管理同一个Stage中的Tasks，TaskScheduler就是�
 ![6](images/540f0d9cf9e24b94b936e4fc5dda0695.jpg)
 
 图中，将TaskSetManager加入rootPool调度池中之后，调用SchedulerBackend的riviveOffers方法给driverEndpoint发送ReviveOffer消息；driverEndpoint收到ReviveOffer消息后调用makeOffers方法，过滤出活跃状态的Executor（这些Executor都是任务启动时反向注册到Driver的Executor），然后将Executor封装成WorkerOffer对象；准备好计算资源（WorkerOffer）后，taskScheduler基于这些资源调用resourceOffer在Executor上分配task。
-
-### 本地化调度
-
-DAGScheduler切割Job，划分Stage, 通过调用submitStage来提交一个Stage对应的tasks，submitStage会调用submitMissingTasks，submitMissingTasks 确定每个需要计算的 task 的preferredLocations，通过调用getPreferrdeLocations()得到partition 的优先位置，由于一个partition对应一个task，此partition的优先位置就是task的优先位置，对于要提交到TaskScheduler的TaskSet中的每一个task，该task优先位置与其对应的partition对应的优先位置一致。
-
-从调度队列中拿到TaskSetManager后，那么接下来的工作就是TaskSetManager按照一定的规则一个个取出task给TaskScheduler，TaskScheduler再交给SchedulerBackend去发到Executor上执行。前面也提到，TaskSetManager封装了一个Stage的所有task，并负责管理调度这些task。
-
-根据每个task的优先位置，确定task的Locality级别，Locality一共有五种，优先级由高到低顺序：
-![7](images/c30f957d52824bd7b71b32c7ccff7748.jpg)
-
-在调度执行时，Spark调度总是会尽量让每个task以最高的本地性级别来启动，当一个task以X本地性级别启动，但是该本地性级别对应的所有节点都没有空闲资源而启动失败，此时并不会马上降低本地性级别启动而是在某个时间长度内再次以X本地性级别来启动该task，若超过限时时间则降级启动，去尝试下一个本地性级别，依次类推。
-
-可以通过调大每个类别的最大容忍延迟时间，在等待阶段对应的Executor可能就会有相应的资源去执行此task，这就在在一定程度上提到了运行性能。
