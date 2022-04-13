@@ -102,6 +102,7 @@ toArray(T[] a)
 6. 改 ： `public E set(int index, E element)，//设置指定位置的元素；`
 7. 遍历: `for (int size = linkedList.size(), i = 0; i < size; i++) {...}`
 8. 遍历2: `for (String str: linkedList) {...}`
+9. 转数组 `List<int[]> res = new ArrayList<>(); return res.toArray(new int[res.size()][]);`
 
 ## 队列
 
