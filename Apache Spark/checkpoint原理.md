@@ -29,7 +29,7 @@ rdd.checkpoint()
 rdd.count()
 ```
 
-首先设置checkpoint目录，一般为hdfs目录，因为checkpoint也是转换，只有等action的时候才会触发计算，并且在正常的Job计算完成之后会单独灵气一个任务来计算checkpoint，所以最好对RDD事先缓存起来，避免重复计算。
+首先设置checkpoint目录，一般为hdfs目录，因为checkpoint也是转换，只有等action的时候才会触发计算，并且在正常的Job计算完成之后会单独另启一个任务来计算checkpoint，所以最好对RDD事先缓存起来，避免重复计算。
 
 ## checkpoint的创建过程
 
@@ -205,7 +205,7 @@ checkpoint的创建过程大概如下：
    }
     ```
 
-## checkpoint的创建过程
+## checkpoint的读取过程
 
 checkpoint的读取过程比较简单，就是RDD在读取父RDD分区时，会找到checkpointRDD,然后通过checkpointRDD加载checkpoint文件。
 
